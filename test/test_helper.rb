@@ -23,6 +23,9 @@ RE_DOCTYPE = /\s*<!DOCTYPE (.*)/
 
 require 'minitest/autorun'
 
+require 'open3'
+require 'nokogiri/diff'
+
 # Minitest 4 doesn't have Minitest::Test
 Minitest::Test = MiniTest::Unit::TestCase unless defined? Minitest::Test
 
@@ -176,12 +179,54 @@ class Minitest::Test
     end
   end
 
+  def libasciidoc_convert(src, opts) 
+    cmd_opts ="-s -"
+    cmd_opts = "-n " + cmd_opts if not opts[:header_footer]
+    stdin, stdout, stderr = Open3.popen3("libasciidoc " + cmd_opts)
+    stdin.puts src.lines.entries
+    stdin.close
+    r = stdout.readlines.join("")
+    stdout.close
+    stderr.close
+    r
+  end
+
+  def compare(asciidoctor_html, libasciidoc_html, opts)
+      asciidoctor_doc= xmldoc_from_string(asciidoctor_html)
+      libasciidoc_doc= xmldoc_from_string(libasciidoc_html)
+      if opts[:header_footer] 
+          asciidoctor_doc= asciidoctor_doc.at_css("body")
+          libasciidoc_doc= libasciidoc_doc.at_css("body")
+      end
+      iterator = asciidoctor_doc.diff(libasciidoc_doc, {:added => true, :removed => true}) 
+      
+      if iterator.any?
+          puts "************** test: #{name()} **************"
+          iterator.each do |change, node|
+              puts "#{change} #{node.to_html}"
+          end
+      else
+          puts "************** Passed: #{name()} **************"
+      end
+      # if gover != doc.convert
+      #     puts "************ asciidoctor: #{name()} *************"
+      #     puts doc.convert
+      #     puts "************* libasciidoc ****************"
+      #     puts gover
+      # else
+      #     puts "************** Passed test: #{name()} **************"
+      # end
+  end
+
   def document_from_string(src, opts = {})
     assign_default_test_options opts
+    doc = Asciidoctor::Document.new src.lines.entries, opts
+    gover = libasciidoc_convert src, opts
+    compare(doc.convert, gover, opts)
     if opts[:parse]
-      (Asciidoctor::Document.new src.lines.entries, opts).parse
+      doc.parse
     else
-      Asciidoctor::Document.new src.lines.entries, opts
+      doc
     end
   end
 

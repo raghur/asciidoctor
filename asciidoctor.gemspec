@@ -49,4 +49,5 @@ Gem::Specification.new do |s|
   # tilt is needed for testing custom templates
   s.add_development_dependency 'tilt', '~> 2.0.0'
   s.add_development_dependency 'minitest', '~> 5.3.0'
+  s.add_development_dependency  'nokogiri-diff', '~> 0.2.0'
 end
